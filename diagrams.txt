@@ -1,0 +1,17 @@
+
+graph TD
+  Robot-->Drivers
+  Robot-->Adaptors
+  Drivers-->Adaptors
+  Adaptors-->Hardware
+  Drivers-->Events
+  Events-.->Robot
+
+graph TD
+  App1-.REST.->API
+  App2-.MQTT.->API
+  App3-.NATS.->API
+  API-->Master
+  Master-->Robot1
+  Master-->Robot2
+  Master-->Robot3

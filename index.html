@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8">
+
+    <title>High-Performance IoT WIth Go and Gobot</title>
+
+    <meta name="description" content="High-Performance IoT WIth Go and Gobot">
+    <meta name="author" content="Ron Evans">
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="stylesheet" href="css/reveal.min.css">
+    <link rel="stylesheet" href="css/theme/default.css" id="theme">
+
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/tomorrow.css">
+
+    <link rel="stylesheet" href="css/hybrid.css">
+
+    <!-- If the query includes 'print-pdf', use the PDF print sheet -->
+    <script>
+      document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+    </script>
+
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+  </head>
+
+  <body>
+
+    <div class="reveal">
+
+      <!-- Any section element inside of this container is displayed as a slide -->
+      <div class="slides">
+        <section>
+          <section>
+            <h1>High-Performance IoT/Robotics With Go and Gobot</h1>
+            <h3>@deadprogram</h3>
+          </section>
+        </section>
+
+        <section>
+          <h2>Are the robots going to take our jobs?</h2>
+        </section>
+
+        <section data-background="images/robotfail1.gif">
+        </section>
+
+        <section data-background="images/terminator.jpg">
+        </section>
+
+        <section>
+          <h2>
+            <blockquote>
+                We have the tendency to overestimate the effect of a technology
+                in the short term and underestimate the effect over the long term.
+            </blockquote>
+            <figcaption>Roy Amara</figcaption>
+          </h2>
+        </section>
+
+        <section>
+          <h2>Good morning</h2>
+        </section>
+
+        <section>
+          <h2>Ron Evans (@deadprogram)</h2>
+        </section>
+
+        <section>
+          <h2>Ringleader</h2>
+          <h3>@hybrid_group</h3>
+        </section>
+
+        <section>
+          <div class="image-container">
+            <img src="images/thg-logo.png">
+          </div>
+          <h3>hybridgroup.com</h3>
+        </section>
+
+        <section>
+          <h2>Clients</h2>
+        </section>
+
+        <section>
+          <div class="image-container">
+            <img src="images/intel-logo.jpg">
+          </div>
+        </section>
+
+        <section>
+          <div class="image-container">
+            <img src="images/sphero-logo.png">
+          </div>
+        </section>
+
+        <section>
+          <h2>Projects</h2>
+        </section>
+
+        <section>
+          <div class="image-container">
+            <img src="images/gobot-logo.png">
+          </div>
+          <h3>gobot.io</h3>
+        </section>
+
+        <section>
+          <h2>Robotics</h2>
+        </section>
+
+        <section>
+          <h2>Drones</h2>
+        </section>
+
+        <section>
+          <h2>Internet of Things (IoT)</h2>
+        </section>
+
+        <section>
+          <h2>Framework?</h2>
+        </section>
+
+        <section>
+          <h2>Software Factory For Hardware Oriented Development</h2>
+        </section>
+
+        <section>
+          <h2>Classic Gobot</h2>
+        </section>
+
+        <section>
+          <h2>Master Gobot</h2>
+        </section>
+
+        <section>
+          <h2>Metal Gobot</h2>
+        </section>
+
+        <section>
+          <div class="image-container">
+            <img src="images/arch-robot.png">
+          </div>
+        </section>
+
+        <section>
+          <div class="image-container">
+            <img src="images/arch-master.png">
+          </div>
+        </section>
+
+        <section>
+          <h2>Demos</h2>
+        </section>
+
+        <section>
+          <section>
+            <h2>"Hello, world" of Things</h2>
+            <h3>Arduino 101</h3>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+
+          <section>
+            <pre><code data-trim>
+package main
+
+import (
+    "time"
+
+    "gobot.io/x/gobot"
+    "gobot.io/x/gobot/drivers/gpio"
+    "gobot.io/x/gobot/platforms/firmata"
+)
+
+func main() {
+    a := firmata.NewAdaptor("/dev/ttyACM0")
+    led := gpio.NewLedDriver(a, "13")
+
+    work := func() {
+        gobot.Every(1*time.Second, func() {
+            led.Toggle()
+        })
+    }
+
+    robot := gobot.NewRobot("blinkBot",
+        []gobot.Connection{a},
+        []gobot.Device{led},
+        work,
+    )
+
+    robot.Start()
+}
+            </code></pre>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>"Hello, world" of Things, Part 2</h2>
+            <h3>Intel Edison</h3>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+
+          <section>
+            <pre><code data-trim>
+package main
+
+import (
+    "time"
+
+    "gobot.io/x/gobot"
+    "gobot.io/x/gobot/drivers/gpio"
+    "gobot.io/x/gobot/platforms/intel-iot/edison"
+)
+
+func main() {
+    a := edison.NewAdaptor()
+    led := gpio.NewLedDriver(a, "13")
+
+    work := func() {
+        gobot.Every(1*time.Second, func() {
+            led.Toggle()
+        })
+    }
+
+    robot := gobot.NewRobot("blinkBot",
+        []gobot.Connection{a},
+        []gobot.Device{led},
+        work,
+    )
+
+    robot.Start()
+}
+            </code></pre>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Complete App</h2>
+          </section>
+
+          <section>
+            <h2>"Miniluminado"</h2>
+          </section>
+
+          <section>
+            <h2>Sensor stations</h2>
+          </section>
+
+          <section>
+            <h2>Base station</h2>
+          </section>
+
+          <section>
+            <h2>Repair system</h2>
+          </section>
+
+          <section>
+            <div class="image-container">
+              <img src="images/demo-arch3.png">
+            </div>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Sensor Station</h2>
+            <h3>Intel Edison + Sensors + MQTT</h3>
+          </section>
+
+          <section>
+            <div class="image-container">
+              <img src="images/demo-arch1.png">
+            </div>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+
+          <section>
+            <pre><code data-trim>
+...
+            </code></pre>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Base Station</h2>
+            <h3>Intel Arduino 101 + LEDs + Robeaux + MQTT</h3>
+          </section>
+
+          <section>
+            <div class="image-container">
+              <img src="images/demo-arch2.png">
+            </div>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+
+          <section>
+            <pre><code data-trim>
+...
+            </code></pre>
+          </section>
+
+          <section>
+            <div class="image-container">
+              <img src="images/robeaux-logo.png">
+            </div>
+            <h3>robeaux.io</h3>
+          </section>
+
+          <section>
+            <div class="image-container">
+              <img src="images/react-logo.png">
+            </div>
+          </section>
+
+          <section>
+            <a target="_blank" href="http://localhost:3000">Robeaux Demo</a>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Repair System</h2>
+            <h3>Parrot Minidrone + DS3 Controller + MQTT</h3>
+          </section>
+
+          <section>
+            <div class="image-container">
+              <img src="images/demo-arch3.png">
+            </div>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+
+          <section>
+            <pre><code data-trim>
+...
+            </code></pre>
+          </section>
+
+          <section data-background="http://localhost:8080/?action=stream">
+          </section>
+        </section>
+
+        <section>
+          <h2>Was that fun?</h2>
+        </section>
+
+        <section>
+          <h2>Join the evolution!</h2>
+        </section>
+
+        <section>
+          <h2>gobot.io</h2>
+        </section>
+
+        <section>
+          <h1>Thank you!</h1>
+          <h2>@deadprogram</h2>
+          <h2>hybridgroup.com</h2>
+        </section>
+      </div>
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.min.js"></script>
+    <script src="js/hybrid.js"></script>
+
+    <script>
+
+      // Full list of configuration options available here:
+      // https://github.com/hakimel/reveal.js#configuration
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Parallax scrolling
+        // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+        // parallaxBackgroundSize: '2100px 900px',
+
+        leap: {
+          naturalSwipe   : true,    // Invert swipe gestures
+          pointerOpacity : 0.5,      // Set pointer opacity to 0.5
+          pointerColor   : '#d80000' // Red pointer
+        },
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+          { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+          { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+          { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+          { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+          { src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+          { src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+          { src: 'plugin/leap/leap.js', async: true }
+        ]
+      });
+
+    </script>
+
+  </body>
+</html>
