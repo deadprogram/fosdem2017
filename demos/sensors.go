@@ -1,8 +1,10 @@
 // How to run:
-// 	./sensors <MQTT SERVER>
+//    ./sensors <MQTT SERVER>
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"time"
@@ -14,7 +16,7 @@ import (
 	"gobot.io/x/gobot/platforms/mqtt"
 )
 
-var light int
+var light int = 0
 
 func main() {
 	a := edison.NewAdaptor()
@@ -29,9 +31,9 @@ func main() {
 		})
 
 		gobot.Every(500*time.Millisecond, func() {
-			data := make([]byte, 1)
-			data[0] = byte(light)
-			server.Publish("miniluminado/sensors/light", data)
+			buf := new(bytes.Buffer)
+			binary.Write(buf, binary.LittleEndian, uint16(light))
+			server.Publish("miniluminado/sensors/light", buf.Bytes())
 		})
 
 		gobot.Every(250*time.Millisecond, func() {

@@ -14,7 +14,7 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <link rel="stylesheet" href="css/reveal.min.css">
+    <link rel="stylesheet" href="css/reveal.css">
     <link rel="stylesheet" href="css/theme/default.css" id="theme">
 
     <!-- For syntax highlighting -->
@@ -170,34 +170,34 @@
           </section>
 
           <section>
-            <pre><code data-trim>
+            <pre><code class="golang">
 package main
 
 import (
-    "time"
+   "time"
 
-    "gobot.io/x/gobot"
-    "gobot.io/x/gobot/drivers/gpio"
-    "gobot.io/x/gobot/platforms/firmata"
+   "gobot.io/x/gobot"
+   "gobot.io/x/gobot/drivers/gpio"
+   "gobot.io/x/gobot/platforms/firmata"
 )
 
 func main() {
-    a := firmata.NewAdaptor("/dev/ttyACM0")
-    led := gpio.NewLedDriver(a, "13")
+   a := firmata.NewAdaptor("/dev/ttyACM0")
+   led := gpio.NewLedDriver(a, "13")
 
-    work := func() {
-        gobot.Every(1*time.Second, func() {
-            led.Toggle()
-        })
-    }
+   work := func() {
+      gobot.Every(1*time.Second, func() {
+         led.Toggle()
+      })
+   }
 
-    robot := gobot.NewRobot("blinkBot",
-        []gobot.Connection{a},
-        []gobot.Device{led},
-        work,
-    )
+   robot := gobot.NewRobot("blinkBot",
+      []gobot.Connection{a},
+      []gobot.Device{led},
+      work,
+   )
 
-    robot.Start()
+   robot.Start()
 }
             </code></pre>
           </section>
@@ -220,30 +220,30 @@ func main() {
 package main
 
 import (
-    "time"
+   "time"
 
-    "gobot.io/x/gobot"
-    "gobot.io/x/gobot/drivers/gpio"
-    "gobot.io/x/gobot/platforms/intel-iot/edison"
+   "gobot.io/x/gobot"
+   "gobot.io/x/gobot/drivers/gpio"
+   "gobot.io/x/gobot/platforms/intel-iot/edison"
 )
 
 func main() {
-    a := edison.NewAdaptor()
-    led := gpio.NewLedDriver(a, "13")
+   a := edison.NewAdaptor()
+   led := gpio.NewLedDriver(a, "13")
 
-    work := func() {
-        gobot.Every(1*time.Second, func() {
-            led.Toggle()
-        })
-    }
+   work := func() {
+      gobot.Every(1*time.Second, func() {
+         led.Toggle()
+      })
+   }
 
-    robot := gobot.NewRobot("blinkBot",
-        []gobot.Connection{a},
-        []gobot.Device{led},
-        work,
-    )
+   robot := gobot.NewRobot("blinkBot",
+      []gobot.Connection{a},
+      []gobot.Device{led},
+      work,
+   )
 
-    robot.Start()
+   robot.Start()
 }
             </code></pre>
           </section>
@@ -297,7 +297,65 @@ func main() {
 
           <section>
             <pre><code data-trim>
-...
+package main
+
+import (
+   "fmt"
+   "os"
+   "time"
+
+   "gobot.io/x/gobot"
+   "gobot.io/x/gobot/drivers/aio"
+   "gobot.io/x/gobot/drivers/i2c"
+   "gobot.io/x/gobot/platforms/intel-iot/edison"
+   "gobot.io/x/gobot/platforms/mqtt"
+)
+
+var light int
+
+func main() {
+   a := edison.NewAdaptor()
+   lux := aio.NewAnalogSensorDriver(a, "0")
+   screen := i2c.NewGroveLcdDriver(a)
+
+   server := mqtt.NewAdaptor(os.Args[1], "sensors")
+
+   work := func() {
+      lux.On(aio.Data, func(data interface{}) {
+         light = data.(int)
+      })
+
+      gobot.Every(500*time.Millisecond, func() {
+         data := make([]byte, 1)
+         data[0] = byte(light)
+         server.Publish("miniluminado/sensors/light", data)
+      })
+
+      gobot.Every(250*time.Millisecond, func() {
+         screen.Clear()
+         screen.Home()
+
+         msg := fmt.Sprintf("%d", light)
+         screen.Write(msg)
+
+         if light > 200 {
+            screen.SetRGB(0, 255, 0) // green
+         } else if light > 100 {
+            screen.SetRGB(0, 0, 255) // blue
+         } else {
+            screen.SetRGB(255, 0, 0) // red
+         }
+      })
+   }
+
+   robot := gobot.NewRobot("sensors",
+      []gobot.Connection{a, server},
+      []gobot.Device{lux, screen},
+      work,
+   )
+
+   robot.Start()
+}
             </code></pre>
           </section>
 
@@ -322,7 +380,115 @@ func main() {
 
           <section>
             <pre><code data-trim>
-...
+package main
+
+import (
+   "fmt"
+   "os"
+   "time"
+
+   "gobot.io/x/gobot"
+   "gobot.io/x/gobot/api"
+   "gobot.io/x/gobot/drivers/gpio"
+   "gobot.io/x/gobot/platforms/firmata"
+   "gobot.io/x/gobot/platforms/mqtt"
+)
+
+var board *firmata.Adaptor
+var leds *gpio.RgbLedDriver
+
+var server *mqtt.Adaptor
+var light *mqtt.Driver
+var drone *mqtt.Driver
+
+var lightLevel int
+var blinker *time.Ticker
+var blinking bool
+
+const (
+   Landing = iota
+   Takeoff = iota
+)
+
+func main() {
+   master := gobot.NewMaster()
+   a := api.NewAPI(master)
+   a.Start()
+
+   board = firmata.NewAdaptor("/dev/ttyACM0")
+   leds = gpio.NewRgbLedDriver(board, "3", "6", "5")
+
+   server = mqtt.NewAdaptor(os.Args[1], "basestation")
+   light = mqtt.NewDriver(server, "miniluminado/sensors/light")
+   drone = mqtt.NewDriver(server, "miniluminado/drones/flights")
+
+   work := func() {
+      light.On(mqtt.Data, func(data interface{}) {
+         lightLevel = int(data.([]byte)[0])
+         fmt.Println("Light:", lightLevel)
+         if !blinking {
+            displayLightLevel()
+         }
+      })
+
+      drone.On(mqtt.Data, func(data interface{}) {
+         flightStatus := int(data.([]byte)[0])
+         if flightStatus == Takeoff {
+            startBlinking()
+         } else {
+            stopBlinking()
+         }
+      })
+   }
+
+   robot := gobot.NewRobot("basestation",
+      []gobot.Connection{board, server},
+      []gobot.Device{leds, light, drone},
+      work,
+   )
+
+   master.AddRobot(robot)
+
+   master.Start()
+}
+
+func displayLightLevel() {
+   if lightLevel > 200 {
+      leds.SetRGB(0, 255, 0) // green
+      return
+   }
+
+   if lightLevel > 100 {
+      leds.SetRGB(0, 0, 255) // blue
+      return
+   }
+
+   leds.SetRGB(255, 0, 0) // red
+   return
+}
+
+func startBlinking() {
+   if blinking {
+      return
+   }
+
+   on := false
+   blinking = true
+   blinker = gobot.Every(500*time.Millisecond, func() {
+      if on {
+         leds.Off()
+         on = false
+      } else {
+         displayLightLevel()
+         on = true
+      }
+   })
+}
+
+func stopBlinking() {
+   blinker.Stop()
+   blinking = false
+}
             </code></pre>
           </section>
 

@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	Landing = iota
-	Takeoff = iota
+	Landing = 1
+	Takeoff = 2
 )
 
 type pair struct {
@@ -25,10 +25,11 @@ type pair struct {
 }
 
 func main() {
+	pwd, _ := os.Getwd()
+	joystickConfig := pwd + "/demos/dualshock3.json"
+
 	joystickAdaptor := joystick.NewAdaptor()
-	stick := joystick.NewDriver(joystickAdaptor,
-		"./platforms/joystick/configs/dualshock3.json",
-	)
+	stick := joystick.NewDriver(joystickAdaptor, joystickConfig)
 
 	droneAdaptor := ble.NewClientAdaptor(os.Args[1])
 	drone := minidrone.NewDriver(droneAdaptor)
@@ -40,18 +41,11 @@ func main() {
 		rightStick := pair{x: 0, y: 0}
 		leftStick := pair{x: 0, y: 0}
 
-		recording := false
-
 		stick.On(joystick.CirclePress, func(data interface{}) {
-			if recording {
-				drone.StopRecording()
-			} else {
-				drone.StartRecording()
-			}
-			recording = !recording
+			drone.FrontFlip()
 		})
 
-		stick.On(joystick.SquarePress, func(data interface{}) {
+		stick.On(joystick.TrianglePress, func(data interface{}) {
 			drone.HullProtection(true)
 			drone.TakeOff()
 
@@ -60,7 +54,7 @@ func main() {
 			server.Publish("miniluminado/drones/flights", msg)
 		})
 
-		stick.On(joystick.TrianglePress, func(data interface{}) {
+		stick.On(joystick.SquarePress, func(data interface{}) {
 			drone.Stop()
 		})
 
@@ -101,7 +95,7 @@ func main() {
 		})
 
 		gobot.Every(10*time.Millisecond, func() {
-			pair := leftStick
+			pair := rightStick
 			if pair.y < -10 {
 				drone.Forward(validatePitch(pair.y, offset))
 			} else if pair.y > 10 {
@@ -120,7 +114,7 @@ func main() {
 		})
 
 		gobot.Every(10*time.Millisecond, func() {
-			pair := rightStick
+			pair := leftStick
 			if pair.y < -10 {
 				drone.Up(validatePitch(pair.y, offset))
 			} else if pair.y > 10 {
@@ -140,7 +134,7 @@ func main() {
 	}
 
 	robot := gobot.NewRobot("minidrone",
-		[]gobot.Connection{joystickAdaptor, droneAdaptor},
+		[]gobot.Connection{joystickAdaptor, droneAdaptor, server},
 		[]gobot.Device{stick, drone},
 		work,
 	)

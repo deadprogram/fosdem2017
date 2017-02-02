@@ -1,8 +1,10 @@
 // How to run:
-// 	./base <MQTT SERVER>
+//    ./basestation <MQTT SERVER>
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"time"
@@ -21,13 +23,13 @@ var server *mqtt.Adaptor
 var light *mqtt.Driver
 var drone *mqtt.Driver
 
-var lightLevel int
+var lightLevel uint16
 var blinker *time.Ticker
 var blinking bool
 
 const (
-	Landing = iota
-	Takeoff = iota
+	Landing = 1
+	Takeoff = 2
 )
 
 func main() {
@@ -44,7 +46,8 @@ func main() {
 
 	work := func() {
 		light.On(mqtt.Data, func(data interface{}) {
-			lightLevel = int(data.([]byte)[0])
+			buf := bytes.NewReader(data.([]byte))
+			binary.Read(buf, binary.LittleEndian, &lightLevel)
 			fmt.Println("Light:", lightLevel)
 			if !blinking {
 				displayLightLevel()
