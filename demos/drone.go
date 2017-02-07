@@ -3,8 +3,8 @@
 package main
 
 import (
-	"math"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"gobot.io/x/gobot"
@@ -24,6 +24,10 @@ type pair struct {
 	y float64
 }
 
+var leftX, leftY, rightX, rightY atomic.Value
+
+const offset = 32767.0
+
 func main() {
 	pwd, _ := os.Getwd()
 	joystickConfig := pwd + "/demos/dualshock3.json"
@@ -37,9 +41,10 @@ func main() {
 	server := mqtt.NewAdaptor(os.Args[2], "drone")
 
 	work := func() {
-		offset := 32767.0
-		rightStick := pair{x: 0, y: 0}
-		leftStick := pair{x: 0, y: 0}
+		leftX.Store(float64(0.0))
+		leftY.Store(float64(0.0))
+		rightX.Store(float64(0.0))
+		rightY.Store(float64(0.0))
 
 		stick.On(joystick.CirclePress, func(data interface{}) {
 			drone.FrontFlip()
@@ -68,66 +73,63 @@ func main() {
 
 		stick.On(joystick.LeftX, func(data interface{}) {
 			val := float64(data.(int16))
-			if leftStick.x != val {
-				leftStick.x = val
-			}
+			leftX.Store(val)
 		})
 
 		stick.On(joystick.LeftY, func(data interface{}) {
 			val := float64(data.(int16))
-			if leftStick.y != val {
-				leftStick.y = val
-			}
+			leftY.Store(val)
 		})
 
 		stick.On(joystick.RightX, func(data interface{}) {
 			val := float64(data.(int16))
-			if rightStick.x != val {
-				rightStick.x = val
-			}
+			rightX.Store(val)
 		})
 
 		stick.On(joystick.RightY, func(data interface{}) {
 			val := float64(data.(int16))
-			if rightStick.y != val {
-				rightStick.y = val
-			}
+			rightY.Store(val)
 		})
 
 		gobot.Every(10*time.Millisecond, func() {
-			pair := rightStick
-			if pair.y < -10 {
-				drone.Forward(validatePitch(pair.y, offset))
-			} else if pair.y > 10 {
-				drone.Backward(validatePitch(pair.y, offset))
-			} else {
+			rightStick := getRightStick()
+
+			switch {
+			case rightStick.y < -10:
+				drone.Forward(minidrone.ValidatePitch(rightStick.y, offset))
+			case rightStick.y > 10:
+				drone.Backward(minidrone.ValidatePitch(rightStick.y, offset))
+			default:
 				drone.Forward(0)
 			}
 
-			if pair.x > 10 {
-				drone.Right(validatePitch(pair.x, offset))
-			} else if pair.x < -10 {
-				drone.Left(validatePitch(pair.x, offset))
-			} else {
+			switch {
+			case rightStick.x > 10:
+				drone.Right(minidrone.ValidatePitch(rightStick.x, offset))
+			case rightStick.x < -10:
+				drone.Left(minidrone.ValidatePitch(rightStick.x, offset))
+			default:
 				drone.Right(0)
 			}
 		})
 
 		gobot.Every(10*time.Millisecond, func() {
-			pair := leftStick
-			if pair.y < -10 {
-				drone.Up(validatePitch(pair.y, offset))
-			} else if pair.y > 10 {
-				drone.Down(validatePitch(pair.y, offset))
-			} else {
+			leftStick := getLeftStick()
+			switch {
+			case leftStick.y < -10:
+				drone.Up(minidrone.ValidatePitch(leftStick.y, offset))
+			case leftStick.y > 10:
+				drone.Down(minidrone.ValidatePitch(leftStick.y, offset))
+			default:
 				drone.Up(0)
 			}
 
-			if pair.x > 20 {
-				drone.Clockwise(validatePitch(pair.x, offset))
-			} else if pair.x < -20 {
-				drone.CounterClockwise(validatePitch(pair.x, offset))
-			} else {
+			switch {
+			case leftStick.x > 20:
+				drone.Clockwise(minidrone.ValidatePitch(leftStick.x, offset))
+			case leftStick.x < -20:
+				drone.CounterClockwise(minidrone.ValidatePitch(leftStick.x, offset))
+			default:
 				drone.Clockwise(0)
 			}
 		})
@@ -142,13 +144,16 @@ func main() {
 	robot.Start()
 }
 
-func validatePitch(data float64, offset float64) int {
-	value := math.Abs(data) / offset
-	if value >= 0.1 {
-		if value <= 1.0 {
-			return int((float64(int(value*100)) / 100) * 100)
-		}
-		return 100
-	}
-	return 0
+func getLeftStick() pair {
+	s := pair{x: 0, y: 0}
+	s.x = leftX.Load().(float64)
+	s.y = leftY.Load().(float64)
+	return s
+}
+
+func getRightStick() pair {
+	s := pair{x: 0, y: 0}
+	s.x = rightX.Load().(float64)
+	s.y = rightY.Load().(float64)
+	return s
 }

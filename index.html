@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8">
 
-    <title>High-Performance IoT WIth Go and Gobot</title>
+    <title>High-Performance IoT/Robotics With Go and Gobot</title>
 
     <meta name="description" content="High-Performance IoT WIth Go and Gobot">
     <meta name="author" content="Ron Evans">
@@ -113,35 +113,36 @@
         </section>
 
         <section>
-          <h2>Robotics</h2>
+          <h2>Golang for programming hardware</h2>
         </section>
 
         <section>
-          <h2>Drones</h2>
+          <h2>Concurrency</h2>
         </section>
 
         <section>
-          <h2>Internet of Things (IoT)</h2>
+          <h2>Portability</h2>
         </section>
 
         <section>
-          <h2>Framework?</h2>
+          <h2>Performance</h2>
         </section>
 
         <section>
-          <h2>Software Factory For Hardware Oriented Development</h2>
+          <h2>C10K --> 10MIoT</h2>
+        </section>
+
+        <section>
+          <h2>Gobot Is A Framework</h2>
+        </section>
+
+        <section>
+          <h2>Software Factory For</h2>
+          <h2>Hardware Oriented Development</h2>
         </section>
 
         <section>
           <h2>Classic Gobot</h2>
-        </section>
-
-        <section>
-          <h2>Master Gobot</h2>
-        </section>
-
-        <section>
-          <h2>Metal Gobot</h2>
         </section>
 
         <section>
@@ -151,9 +152,17 @@
         </section>
 
         <section>
+          <h2>Master Gobot</h2>
+        </section>
+
+        <section>
           <div class="image-container">
             <img src="images/arch-master.png">
           </div>
+        </section>
+
+        <section>
+          <h2>Metal Gobot</h2>
         </section>
 
         <section>
@@ -208,8 +217,8 @@ func main() {
 
         <section>
           <section>
-            <h2>"Hello, world" of Things, Part 2</h2>
-            <h3>Intel Edison</h3>
+            <h2>Basic I/O</h2>
+            <h3>Arduino 101 + Button + LED</h3>
           </section>
 
           <section data-background="http://localhost:8080/?action=stream">
@@ -220,26 +229,26 @@ func main() {
 package main
 
 import (
-   "time"
-
    "gobot.io/x/gobot"
    "gobot.io/x/gobot/drivers/gpio"
-   "gobot.io/x/gobot/platforms/intel-iot/edison"
+   "gobot.io/x/gobot/platforms/firmata"
 )
 
 func main() {
-   a := edison.NewAdaptor()
-   led := gpio.NewLedDriver(a, "13")
+   firmataAdaptor := firmata.NewAdaptor("/dev/ttyACM0")
+
+   led := gpio.NewLedDriver(firmataAdaptor, "2")
+   button := gpio.NewButtonDriver(firmataAdaptor, "3")
 
    work := func() {
-      gobot.Every(1*time.Second, func() {
+      button.On(gpio.ButtonPush, func(data interface{}) {
          led.Toggle()
       })
    }
 
-   robot := gobot.NewRobot("blinkBot",
-      []gobot.Connection{a},
-      []gobot.Device{led},
+   robot := gobot.NewRobot("buttonBot",
+      []gobot.Connection{firmataAdaptor},
+      []gobot.Device{led, button},
       work,
    )
 
@@ -259,6 +268,10 @@ func main() {
 
           <section>
             <h2>"Miniluminado"</h2>
+          </section>
+
+          <section>
+            <h2>Solar Power Monitoring System</h2>
           </section>
 
           <section>
@@ -300,6 +313,8 @@ func main() {
 package main
 
 import (
+   "bytes"
+   "encoding/binary"
    "fmt"
    "os"
    "time"
@@ -311,7 +326,7 @@ import (
    "gobot.io/x/gobot/platforms/mqtt"
 )
 
-var light int
+var light int = 0
 
 func main() {
    a := edison.NewAdaptor()
@@ -326,9 +341,9 @@ func main() {
       })
 
       gobot.Every(500*time.Millisecond, func() {
-         data := make([]byte, 1)
-         data[0] = byte(light)
-         server.Publish("miniluminado/sensors/light", data)
+         buf := new(bytes.Buffer)
+         binary.Write(buf, binary.LittleEndian, uint16(light))
+         server.Publish("miniluminado/sensors/light", buf.Bytes())
       })
 
       gobot.Every(250*time.Millisecond, func() {
@@ -366,7 +381,7 @@ func main() {
         <section>
           <section>
             <h2>Base Station</h2>
-            <h3>Intel Arduino 101 + LEDs + Robeaux + MQTT</h3>
+            <h3>Intel Arduino 101 + LEDs + MQTT</h3>
           </section>
 
           <section>
@@ -383,6 +398,8 @@ func main() {
 package main
 
 import (
+   "bytes"
+   "encoding/binary"
    "fmt"
    "os"
    "time"
@@ -401,13 +418,13 @@ var server *mqtt.Adaptor
 var light *mqtt.Driver
 var drone *mqtt.Driver
 
-var lightLevel int
+var lightLevel uint16
 var blinker *time.Ticker
 var blinking bool
 
 const (
-   Landing = iota
-   Takeoff = iota
+   Landing = 1
+   Takeoff = 2
 )
 
 func main() {
@@ -424,7 +441,8 @@ func main() {
 
    work := func() {
       light.On(mqtt.Data, func(data interface{}) {
-         lightLevel = int(data.([]byte)[0])
+         buf := bytes.NewReader(data.([]byte))
+         binary.Read(buf, binary.LittleEndian, &lightLevel)
          fmt.Println("Light:", lightLevel)
          if !blinking {
             displayLightLevel()
@@ -489,6 +507,7 @@ func stopBlinking() {
    blinker.Stop()
    blinking = false
 }
+
             </code></pre>
           </section>
 
@@ -506,7 +525,7 @@ func stopBlinking() {
           </section>
 
           <section>
-            <a target="_blank" href="http://localhost:3000">Robeaux Demo</a>
+            <a target="_blank" href="http://192.168.1.1:3000">Robeaux Demo</a>
           </section>
 
           <section data-background="http://localhost:8080/?action=stream">
@@ -530,7 +549,159 @@ func stopBlinking() {
 
           <section>
             <pre><code data-trim>
-...
+package main
+
+import (
+   "math"
+   "os"
+   "time"
+
+   "gobot.io/x/gobot"
+   "gobot.io/x/gobot/platforms/ble"
+   "gobot.io/x/gobot/platforms/joystick"
+   "gobot.io/x/gobot/platforms/mqtt"
+   "gobot.io/x/gobot/platforms/parrot/minidrone"
+)
+
+const (
+   Landing = 1
+   Takeoff = 2
+)
+
+type pair struct {
+   x float64
+   y float64
+}
+
+func main() {
+   pwd, _ := os.Getwd()
+   joystickConfig := pwd + "/demos/dualshock3.json"
+
+   joystickAdaptor := joystick.NewAdaptor()
+   stick := joystick.NewDriver(joystickAdaptor, joystickConfig)
+
+   droneAdaptor := ble.NewClientAdaptor(os.Args[1])
+   drone := minidrone.NewDriver(droneAdaptor)
+
+   server := mqtt.NewAdaptor(os.Args[2], "drone")
+
+   work := func() {
+      offset := 32767.0
+      rightStick := pair{x: 0, y: 0}
+      leftStick := pair{x: 0, y: 0}
+
+      stick.On(joystick.CirclePress, func(data interface{}) {
+         drone.FrontFlip()
+      })
+
+      stick.On(joystick.TrianglePress, func(data interface{}) {
+         drone.HullProtection(true)
+         drone.TakeOff()
+
+         msg := make([]byte, 1)
+         msg[0] = byte(Takeoff)
+         server.Publish("miniluminado/drones/flights", msg)
+      })
+
+      stick.On(joystick.SquarePress, func(data interface{}) {
+         drone.Stop()
+      })
+
+      stick.On(joystick.XPress, func(data interface{}) {
+         drone.Land()
+
+         msg := make([]byte, 1)
+         msg[0] = byte(Landing)
+         server.Publish("miniluminado/drones/flights", msg)
+      })
+
+      stick.On(joystick.LeftX, func(data interface{}) {
+         val := float64(data.(int16))
+         if leftStick.x != val {
+            leftStick.x = val
+         }
+      })
+
+      stick.On(joystick.LeftY, func(data interface{}) {
+         val := float64(data.(int16))
+         if leftStick.y != val {
+            leftStick.y = val
+         }
+      })
+
+      stick.On(joystick.RightX, func(data interface{}) {
+         val := float64(data.(int16))
+         if rightStick.x != val {
+            rightStick.x = val
+         }
+      })
+
+      stick.On(joystick.RightY, func(data interface{}) {
+         val := float64(data.(int16))
+         if rightStick.y != val {
+            rightStick.y = val
+         }
+      })
+
+      gobot.Every(10*time.Millisecond, func() {
+         pair := rightStick
+         if pair.y < -10 {
+            drone.Forward(validatePitch(pair.y, offset))
+         } else if pair.y > 10 {
+            drone.Backward(validatePitch(pair.y, offset))
+         } else {
+            drone.Forward(0)
+         }
+
+         if pair.x > 10 {
+            drone.Right(validatePitch(pair.x, offset))
+         } else if pair.x < -10 {
+            drone.Left(validatePitch(pair.x, offset))
+         } else {
+            drone.Right(0)
+         }
+      })
+
+      gobot.Every(10*time.Millisecond, func() {
+         pair := leftStick
+         if pair.y < -10 {
+            drone.Up(validatePitch(pair.y, offset))
+         } else if pair.y > 10 {
+            drone.Down(validatePitch(pair.y, offset))
+         } else {
+            drone.Up(0)
+         }
+
+         if pair.x > 20 {
+            drone.Clockwise(validatePitch(pair.x, offset))
+         } else if pair.x < -20 {
+            drone.CounterClockwise(validatePitch(pair.x, offset))
+         } else {
+            drone.Clockwise(0)
+         }
+      })
+   }
+
+   robot := gobot.NewRobot("minidrone",
+      []gobot.Connection{joystickAdaptor, droneAdaptor, server},
+      []gobot.Device{stick, drone},
+      work,
+   )
+
+   robot.Start()
+}
+
+func validatePitch(data float64, offset float64) int {
+   value := math.Abs(data) / offset
+   if value >= 0.1 {
+      if value <= 1.0 {
+         return int((float64(int(value*100)) / 100) * 100)
+      }
+      return 100
+   }
+   return 0
+}
+
             </code></pre>
           </section>
 
@@ -548,6 +719,7 @@ func stopBlinking() {
 
         <section>
           <h2>gobot.io</h2>
+          <h2>@gobotio</h2>
         </section>
 
         <section>

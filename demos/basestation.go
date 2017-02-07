@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"gobot.io/x/gobot"
@@ -23,9 +24,8 @@ var server *mqtt.Adaptor
 var light *mqtt.Driver
 var drone *mqtt.Driver
 
-var lightLevel uint16
+var lightLevel, blinking atomic.Value
 var blinker *time.Ticker
-var blinking bool
 
 const (
 	Landing = 1
@@ -44,12 +44,18 @@ func main() {
 	light = mqtt.NewDriver(server, "miniluminado/sensors/light")
 	drone = mqtt.NewDriver(server, "miniluminado/drones/flights")
 
+	lightLevel.Store(uint16(0))
+	blinking.Store(false)
+
 	work := func() {
 		light.On(mqtt.Data, func(data interface{}) {
+			var lvl uint16
 			buf := bytes.NewReader(data.([]byte))
-			binary.Read(buf, binary.LittleEndian, &lightLevel)
-			fmt.Println("Light:", lightLevel)
-			if !blinking {
+			binary.Read(buf, binary.LittleEndian, &lvl)
+			lightLevel.Store(lvl)
+			fmt.Println("Light:", lvl)
+			b := blinking.Load().(bool)
+			if !b {
 				displayLightLevel()
 			}
 		})
@@ -76,27 +82,25 @@ func main() {
 }
 
 func displayLightLevel() {
-	if lightLevel > 200 {
+	lvl := lightLevel.Load().(uint16)
+	switch {
+	case lvl > 200:
 		leds.SetRGB(0, 255, 0) // green
-		return
-	}
-
-	if lightLevel > 100 {
+	case lvl > 100:
 		leds.SetRGB(0, 0, 255) // blue
-		return
+	default:
+		leds.SetRGB(255, 0, 0) // red
 	}
-
-	leds.SetRGB(255, 0, 0) // red
-	return
 }
 
 func startBlinking() {
-	if blinking {
+	b := blinking.Load().(bool)
+	if b {
 		return
 	}
 
 	on := false
-	blinking = true
+	blinking.Store(true)
 	blinker = gobot.Every(500*time.Millisecond, func() {
 		if on {
 			leds.Off()
@@ -110,5 +114,5 @@ func startBlinking() {
 
 func stopBlinking() {
 	blinker.Stop()
-	blinking = false
+	blinking.Store(false)
 }
